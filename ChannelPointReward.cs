@@ -5,6 +5,7 @@ using Assets.Scripts.Unity.UI_New.InGame;
 using BloonsTD6_Mod_Helper.Extensions;
 using MelonLoader;
 using MelonLoader.TinyJSON;
+using UnhollowerBaseLib;
 
 namespace SCPI
 {
@@ -14,8 +15,16 @@ namespace SCPI
         HalfCash,
         FreeTack,
         SellRandom,
-        UpgradeRandom/*,
-        Debug*/
+        UpgradeRandom,
+        SendRoundAgain,
+        DupliacteBloons,
+        // Disabled for now as setting these attributes seems to be bugged at the moment.
+ /*       FortifyBloons,
+        CamoBloons,
+        RegrowBloons,
+        TenDamage,*/
+        HealBloons,
+/*        Debug*/
     }
 
     internal class ChannelPointReward
@@ -41,7 +50,14 @@ namespace SCPI
 
         public static void SetRewardTypeID(RewardType type, string id)
         {
-            IDToRewardTypes[id] = type;
+            if (IDToRewardTypes.ContainsKey(id))
+            {
+                IDToRewardTypes[id] = type;
+            }
+            else
+            {
+                IDToRewardTypes.Add(id, type);
+            }
         }
 
         private static void SetActionForRewardType(RewardType type, Action action)
@@ -56,17 +72,29 @@ namespace SCPI
             
             RewardToDesctiption[RewardType.HalfCash] = "Set to half Cash";
             RewardToDesctiption[RewardType.HalfHP] = "Set to half HP";
-            //RewardToDesctiption[RewardType.Debug] = "OwO whats this?";
+/*            RewardToDesctiption[RewardType.Debug] = "OwO whats this?";*/
             RewardToDesctiption[RewardType.FreeTack] = "Give a free Tack Shooter";
             RewardToDesctiption[RewardType.SellRandom] = "Sell a random Tower";
             RewardToDesctiption[RewardType.UpgradeRandom] = "Upgrade a random Tower";
+            RewardToDesctiption[RewardType.SendRoundAgain] = "Send the current Round... again!";
+            RewardToDesctiption[RewardType.DupliacteBloons] = "Duplicate all Bloons on Screen";
+/*            RewardToDesctiption[RewardType.FortifyBloons] = "Fortify all Bloons on Screen";
+            RewardToDesctiption[RewardType.RegrowBloons] = "Make all Bloons on Screen regrowing";
+            RewardToDesctiption[RewardType.CamoBloons] = "Make all Bloons on Screen camo";*/
+            RewardToDesctiption[RewardType.HealBloons] = "Heal all Bloons on Screen";
             
             RewardToColorString[RewardType.HalfCash] = "#E3CB02";
             RewardToColorString[RewardType.HalfHP] = "#ff4e00";
-            //RewardToColorString[RewardType.Debug] = "#FFFFFF";
+/*            RewardToColorString[RewardType.Debug] = "#FFFFFF";*/
             RewardToColorString[RewardType.FreeTack] = "#E3CB02";
             RewardToColorString[RewardType.SellRandom] = "#E33625";
             RewardToColorString[RewardType.UpgradeRandom] = "#34B8EF";
+            RewardToColorString[RewardType.SendRoundAgain] = "#87D11E";
+            RewardToColorString[RewardType.DupliacteBloons] = "#808080";
+/*            RewardToColorString[RewardType.FortifyBloons] = "#1C1717";
+            RewardToColorString[RewardType.RegrowBloons] = "#65074C";
+            RewardToColorString[RewardType.CamoBloons] = "#2E6808";*/
+            RewardToColorString[RewardType.HealBloons] = "#FF005A";
 
         }
 
@@ -177,9 +205,89 @@ namespace SCPI
                 }
             });
             
-            /*SetActionForRewardType(RewardType.Debug, () =>
+            SetActionForRewardType(RewardType.SendRoundAgain, () =>
             {
-                MelonLogger.Log("DEBUG:");
+                var round = InGame.instance.bridge.GetCurrentRound() + 1;
+                InGame.instance.SpawnBloons(round);
+                Game.instance.ShowMessage(
+                    "Sent out the current round (" + round + ") again!\nLet's see if you're up to the task!", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            
+            SetActionForRewardType(RewardType.DupliacteBloons, () =>
+            {
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    bloon.GetSimBloon().bloonModel.SpawnBloonModel();
+                }
+                Game.instance.ShowMessage(
+                    "All Bloons have been duplicated...\nIn ONE SPOT!\nGood Luck! You'll need it...", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            
+            // Disabled for now as setting these attributes seems to be bugged at the moment.
+            /*SetActionForRewardType(RewardType.FortifyBloons, () =>
+            {
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    var simbloon = bloon.GetSimBloon();
+                    simbloon.SetFortified(true);
+                    simbloon.ResetHealth();
+                    
+                    MelonLogger.Msg("Is fortified? " + bloon.Def.isFortified); // Even when setting this value directly, the fortification gets stripped after a certain amount of damage.
+                }
+                Game.instance.ShowMessage(
+                    "All Bloons have been fortified!\nShould make it harder :)", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            
+            SetActionForRewardType(RewardType.CamoBloons, () =>
+            {
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    bloon.GetSimBloon().SetCamo(true);
+                }
+                Game.instance.ShowMessage(
+                    "All Bloons have been made camo!\nCan you still see them?", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            
+            SetActionForRewardType(RewardType.RegrowBloons, () =>
+            {
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    bloon.GetSimBloon().SetRegrow(true);
+                }
+                Game.instance.ShowMessage(
+                    "All Bloons are now regrowing!\ndo you have the sustained damage?", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            */
+            SetActionForRewardType(RewardType.HealBloons, () =>
+            {
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    bloon.GetSimBloon().ResetHealth();
+                    
+                }
+                Game.instance.ShowMessage(
+                    "All Bloons have been healed!\n#ouch", 5f,
+                    "Twitch Integration Reward Redeemed");
+            });
+            
+/*            SetActionForRewardType(RewardType.Debug, () =>
+            {
+                MelonLogger.Msg("DEBUG:");
+                var bloons = InGame.instance.bridge.GetAllBloons();
+                foreach (var bloon in bloons)
+                {
+                    bloon.GetSimBloon().RecieveDamage(10, new Il2CppStringArray(new string[]{}), null, false, false, true, null, false);
+                }
 
             });*/
         }
@@ -187,18 +295,18 @@ namespace SCPI
         public void listAllTowerInventory_Debug()
         {
             var instance = InGame.instance;
-            MelonLogger.Log("Instance: " + instance.ToString());
+            MelonLogger.Msg("Instance: " + instance.ToString());
             var towerinventory = instance.GetTowerInventory();
-            MelonLogger.Log("Tower Inventory: " + towerinventory.ToString());
+            MelonLogger.Msg("Tower Inventory: " + towerinventory.ToString());
             var counts = towerinventory.towerCounts;
-            MelonLogger.Log("counts: " + counts.ToString());
+            MelonLogger.Msg("counts: " + counts.ToString());
             var keys = counts.Keys;
-            MelonLogger.Log("keys: " + keys.ToString());
+            MelonLogger.Msg("keys: " + keys.ToString());
             foreach (string key in counts.Keys)
             {
-                MelonLogger.Log("Insite foreach");
+                MelonLogger.Msg("Insite foreach");
                 var val = counts[key];
-                MelonLogger.Log("Tower " + key + " is present " + val + " times.");
+                MelonLogger.Msg("Tower " + key + " is present " + val + " times.");
             }
         }
     }

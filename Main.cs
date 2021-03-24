@@ -72,8 +72,8 @@ namespace SCPI
         public override async void OnApplicationStart()
         {
             base.OnApplicationStart();
-            MelonLogger.Log("Starting up Twitch Integration...");
-            MelonLogger.Log("Checking for existing authentication...");
+            MelonLogger.Msg("Starting up Twitch Integration...");
+            MelonLogger.Msg("Checking for existing authentication...");
             Directory.CreateDirectory(Path.GetDirectoryName(TwitchauthPath) ?? throw new InvalidOperationException());
             if (!File.Exists(TwitchauthPath))
             {
@@ -83,7 +83,7 @@ namespace SCPI
             {
                 var content = File.Exists(TwitchauthPath) ? File.ReadAllText(TwitchauthPath) : "";
                 content = content.Trim();
-                //MelonLogger.Log("Content was: \"" + content + "\"");
+                //MelonLogger.Msg("Content was: \"" + content + "\"");
                 if (!content.Equals(""))
                 {
                     await ValidateToken(content);
@@ -101,11 +101,11 @@ namespace SCPI
             Client.DefaultRequestHeaders.Add("Client-ID", ClientID);
             var response = await Client.GetAsync("https://id.twitch.tv/oauth2/validate");
             var responseContent = await response.Content.ReadAsStringAsync();
-            //MelonLogger.Log("Validation response: " + responseContent);
+            //MelonLogger.Msg("Validation response: " + responseContent);
             var responseJson = JSON.Load(responseContent);
             if (response.IsSuccessStatusCode)
             {
-                MelonLogger.Log("That's a success! Setting variables.");
+                MelonLogger.Msg("That's a success! Setting variables.");
                 _twitchID = responseJson["user_id"];
                 _twitchToken = token;
                 TwitchAuthed = true;
@@ -119,7 +119,7 @@ namespace SCPI
             }
             else
             {
-                MelonLogger.LogWarning("Preexisting token has expired!");
+                MelonLogger.Warning("Preexisting token has expired!");
                 TwitchAuthFailReason = "a previous authentication has expired.";
             }
 
@@ -133,7 +133,7 @@ namespace SCPI
 
         private static Task SendToPubSub(string input)
         {
-            // MelonLogger.Log(">> " + input);
+            // MelonLogger.Msg(">> " + input);
             return Wsc.SendAsync(GetArraySegment(input),
                 WebSocketMessageType.Text, true,
                 CancellationToken.None);
@@ -145,50 +145,50 @@ namespace SCPI
         {
             _twitchSynced = true;
             Wsc.ConnectAsync(new Uri("wss://pubsub-edge.twitch.tv"), CancellationToken.None).Wait();
-            MelonLogger.Log("Connected to PubSub");
+            MelonLogger.Msg("Connected to PubSub");
             await Task.Factory.StartNew(async () =>
             {
                 while (true)
                 {
                     var arraySegment = new ArraySegment<byte>(new byte[4096 * 20]);
-                    //MelonLogger.Log("Waiting for messages...");
+                    //MelonLogger.Msg("Waiting for messages...");
                     await Wsc.ReceiveAsync(arraySegment, CancellationToken.None);
-                    //MelonLogger.Log("Got message");
+                    //MelonLogger.Msg("Got message");
                     var msgBytes = arraySegment.Skip(arraySegment.Offset).Take(arraySegment.Count).ToArray();
                     var rcvMsg = Encoding.UTF8.GetString(msgBytes);
-                    //MelonLogger.Log("rcvMSg: " + rcvMsg);
+                    //MelonLogger.Msg("rcvMSg: " + rcvMsg);
                     foreach (var line in rcvMsg.Split('\n'))
                     {
                         if ("".Equals(line)) continue;
-                        //MelonLogger.Log("<< " + line);
+                        //MelonLogger.Msg("<< " + line);
                         try
                         {
                             var msgJson = JSON.Load(line);
-                            //MelonLogger.Log("parsed json: " + JSON.Dump(msgJson));
+                            //MelonLogger.Msg("parsed json: " + JSON.Dump(msgJson));
                             switch (msgJson["type"].ToString(CultureInfo.CurrentCulture))
                             {
                                 case "MESSAGE":
                                 {
                                     try
                                     {
-                                        //MelonLogger.Log("In MESSAGE switch");
+                                        //MelonLogger.Msg("In MESSAGE switch");
                                         var data = msgJson["data"];
-                                        //MelonLogger.Log("Data: " + JSON.Dump(data));
+                                        //MelonLogger.Msg("Data: " + JSON.Dump(data));
                                         string message = data["message"];
-                                        //MelonLogger.Log("Message: " + message);
+                                        //MelonLogger.Msg("Message: " + message);
                                         var rewardData = JSON.Load(message);
-                                        //MelonLogger.Log("message parsed");
-                                        //MelonLogger.Log("Parsed data: " + JSON.Dump(rewardData));
+                                        //MelonLogger.Msg("message parsed");
+                                        //MelonLogger.Msg("Parsed data: " + JSON.Dump(rewardData));
                                         // ReSharper disable once UnusedVariable
                                         string id = rewardData["data"]["redemption"]["reward"]["id"];
-                                        //MelonLogger.Log("Got the reward id: " + id);
+                                        //MelonLogger.Msg("Got the reward id: " + id);
                                         var redemption =
                                             new ChannelPointRedemption(rewardData["data"]["redemption"]);
                                         redemption.Reward.Trigger();
                                     }
                                     catch (Exception e)
                                     {
-                                        MelonLogger.LogError(e.ToString());
+                                        MelonLogger.Error(e.ToString());
                                     }
 
                                     break;
@@ -207,7 +207,7 @@ namespace SCPI
                         }
                         catch (Exception e)
                         {
-                            MelonLogger.LogWarning("Error during Websocket parsing: " + e);
+                            MelonLogger.Warning("Error during Websocket parsing: " + e);
                         }
                     }
                 }
@@ -232,12 +232,12 @@ namespace SCPI
                 return;
             if (!_syncStarted && TwitchAuthed && !_twitchSynced)
             {
-                //MelonLogger.Log("Sync start");
+                //MelonLogger.Msg("Sync start");
                 _syncStarted = true;
-                MelonLogger.Log("Syncing Channel Point Rewards with Twitch...");
+                MelonLogger.Msg("Syncing Channel Point Rewards with Twitch...");
                 if (!File.Exists(RewardsPath))
                 {
-                    //MelonLogger.Log("Creating file!");
+                    //MelonLogger.Msg("Creating file!");
                     var stream = File.CreateText(RewardsPath);
                     stream.WriteAsync("{}").Wait();
                     stream.FlushAsync().Wait();
@@ -276,10 +276,10 @@ namespace SCPI
                     Task<string> t2 = response.Content.ReadAsStringAsync();
                     t2.Wait();
                     var responseContent = t2.Result;
-                    MelonLogger.Log("Rewards response: " + responseContent);
+                    MelonLogger.Msg("Rewards response: " + responseContent);
                     var responseJson = JSON.Load(responseContent);
                     var data = responseJson["data"];
-                    MelonLogger.Log("data acquired. Moving along.");
+                    MelonLogger.Msg("data acquired. Moving along.");
                     foreach (var reward in (ProxyArray) data)
                     {
                         ChannelPointReward rewardObj = new ChannelPointReward(reward);
@@ -291,7 +291,7 @@ namespace SCPI
                         }
                         catch (Exception)
                         {
-                            MelonLogger.Log("Could not map reward " + rewardObj.id + " to a local type. Ignoring.");
+                            MelonLogger.Msg("Could not map reward " + rewardObj.id + " to a local type. Ignoring.");
                         }
                     }
 
@@ -305,29 +305,44 @@ namespace SCPI
                                 //If reward not found yet, create it!
                                 try
                                 {
-                                    var obj = JSON.Load("{\"title\":\"" +
-                                                        ChannelPointReward.GetDescriptionFromType(keyValuePair.Key) +
-                                                        "\"," + "\"cost\":1000," +
-                                                        "\"is_enabled\":false," +
-                                                        "\"background_color\":\"" +
-                                                        ChannelPointReward.GetColorFromType(keyValuePair.Key) + "\"" +
-                                                        "\"should_redemptions_skip_request_queue\":true}");
-                                    var postResponse = await Client.PostAsync(
-                                        "https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id=" +
-                                        _twitchID,
-                                        new StringContent(JSON.Dump(obj), Encoding.UTF8, "application/json"));
+                                    HttpResponseMessage postResponse;
+                                    do
+                                    {
+                                        var obj = JSON.Load("{\"title\":\"" +
+                                                            ChannelPointReward
+                                                                .GetDescriptionFromType(keyValuePair.Key) +
+                                                            "\"," + "\"cost\":1000,\"is_enabled\":false," +
+                                                            "\"background_color\":\"" +
+                                                            ChannelPointReward.GetColorFromType(keyValuePair.Key) +
+                                                            "\"" +
+                                                            "\"should_redemptions_skip_request_queue\":true}");
+                                        postResponse = await Client.PostAsync(
+                                            "https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id=" +
+                                            _twitchID,
+                                            new StringContent(JSON.Dump(obj), Encoding.UTF8, "application/json"));
+                                        if (postResponse.StatusCode == (HttpStatusCode) 429)
+                                        {
+                                            
+                                            MelonLogger.Msg("Rate limit hit. Waiting");
+                                        }
+                                        else
+                                        {
+                                            //MelonLogger.Msg("Status: " + postResponse.StatusCode.ToString());
+                                        }
+                                    } while (postResponse.StatusCode == (HttpStatusCode) 429);
+
                                     var postResponseContent = await postResponse.Content.ReadAsStringAsync();
+                                    //MelonLogger.Msg("Content: " + postResponseContent);
                                     var postResponseContentJson = JSON.Load(postResponseContent);
                                     content[keyValuePair.Key.ToString()] =
                                         postResponseContentJson["data"][0];
-                                    //MelonLogger.Log("Reward creation result: " + postResponseContent);
-
+                                    //MelonLogger.Msg("Setting up " + keyValuePair.Key.ToString());
                                     ChannelPointReward.SetRewardTypeID(keyValuePair.Key,
                                         postResponseContentJson["data"][0]["id"]);
                                 }
                                 catch (Exception e)
                                 {
-                                    MelonLogger.LogError(e.ToString());
+                                    MelonLogger.Error(e.ToString());
                                     hadIssues = true;
                                 }
                             }
@@ -369,7 +384,7 @@ namespace SCPI
                 }
                 catch (Exception e)
                 {
-                    MelonLogger.LogError("Error loading Rewards: " + e);
+                    MelonLogger.Error("Error loading Rewards: " + e);
                     PopupsToDisplay.Enqueue(new MyPopup(PopupType.Yesno,
                         "Error loading Rewards.\n\nTry again?",
                         "Twitch Integration Error", "Yes", "no", () => { _syncStarted = false; }));
@@ -384,7 +399,7 @@ namespace SCPI
                     //goto afterif; // Don't show popup if too many are already active.
                 }
 
-                //MelonLogger.Log("Showing popup...");
+                //MelonLogger.Msg("Showing popup...");
                 var currentPopup = PopupsToDisplay.Dequeue();
                 switch (currentPopup.Type)
                 {
@@ -406,7 +421,8 @@ namespace SCPI
             if (InGame.instance is null)
                 return;
 
-            if (RewardActionsToRunInInGameThread.Count >= 1)
+            if ((!InGame.instance.IsCoop) && (!InGame.instance.IsInOdyssey()) &&
+                RewardActionsToRunInInGameThread.Count >= 1)
             {
                 var action = RewardActionsToRunInInGameThread.Dequeue();
                 action.Invoke();
@@ -453,7 +469,7 @@ namespace SCPI
 
         internal static void ShowTwitchAuthPopup()
         {
-            MelonLogger.Log("opening Twitch authentication page");
+            MelonLogger.Msg("opening Twitch authentication page");
             Process.Start(
                 "https://id.twitch.tv/oauth2/authorize?client_id=54ynosen4vbdar2wo1db4ihthvv5vx" +
                 "&redirect_uri=http%3A%2F%2Flocalhost%3A17863" +
@@ -462,7 +478,7 @@ namespace SCPI
             Game.instance.GetPopupScreen().ShowPopup(PopupScreen.Placement.menuCenter, "Authenticating",
                 "Please check the browser that opened or click below to retry or cancel",
                 new Action(ShowTwitchAuthPopup), "retry",
-                new Action(() => { MelonLogger.Log("aborted Twitch auth"); }), "Cancel", Popup.TransitionAnim.Scale);
+                new Action(() => { MelonLogger.Msg("aborted Twitch auth"); }), "Cancel", Popup.TransitionAnim.Scale);
             Task.Factory.StartNew(async () =>
             {
                 _listener?.Abort();
@@ -475,7 +491,7 @@ namespace SCPI
                     var request = context.Request;
                     var response = context.Response;
 
-                    MelonLogger.Log("Request to: " + request.Url);
+                    MelonLogger.Msg("Request to: " + request.Url);
                     if (request.HttpMethod == "POST")
                     {
                         string text;
@@ -485,7 +501,7 @@ namespace SCPI
                             text = await reader.ReadToEndAsync();
                         }
 
-                        //MelonLogger.Log("Got post data: " + text);
+                        //MelonLogger.Msg("Got post data: " + text);
                         var buffer = Encoding.UTF8.GetBytes("Thank you. Close this now.");
                         response.ContentLength64 = buffer.Length;
                         var output = response.OutputStream;
@@ -505,7 +521,7 @@ namespace SCPI
                             File.WriteAllLines(Main.TwitchauthPath, new[] {value});
                             Action callback =
                                 () => { Game.instance.GetPopupScreen().GetFirstActivePopup().HidePopup(); };
-                            //MelonLogger.Log("About to await validate token");
+                            //MelonLogger.Msg("About to await validate token");
                             var popup = new MyPopup(PopupType.Yesonly, title: "Successfully Authenticated!",
                                 okCallback: callback, cancelCallback: callback);
                             Main.PopupsToDisplay.Enqueue(popup);
@@ -514,7 +530,7 @@ namespace SCPI
                     }
                     else
                     {
-                        MelonLogger.Log("Got non-Post request, sending redirect response...");
+                        MelonLogger.Msg("Got non-Post request, sending redirect response...");
                         var buffer = Encoding.UTF8.GetBytes(Httpredirect);
                         response.ContentLength64 = buffer.Length;
                         var output = response.OutputStream;
