@@ -131,7 +131,7 @@ namespace SCPI
             SetActionForRewardType(RewardType.HalfCash, () =>
             {
                 double cash = InGame.instance.GetCash();
-                InGame.instance.GetCashManager().cash.Value = Math.Ceiling(cash / 2);
+                InGame.instance.SetCash(Math.Ceiling(cash / 2));
                 Game.instance.ShowMessage("Your Cash has been halfed...\nHow unfortunate!",
                     "Twitch Integration Reward Redeemed");
             });
